@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071018" />
   <title>Key Levels</title>
   <link rel="stylesheet" href="./styles.css" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <script src="./config.js"></script>
 </head>
 <body>
   <div class="shell">
@@ -14,7 +14,7 @@
       <div>
         <div class="eyebrow">MULTI-TIMEFRAME MARKET MAP</div>
         <h1>Key Levels</h1>
-        <p>Automatic Daily, 4H and 1H support / resistance analysis.</p>
+        <p>Browser-only Daily, 4H and 1H support / resistance analysis.</p>
       </div>
       <div class="status" id="status"><span class="dot"></span> Ready</div>
     </header>
@@ -25,18 +25,22 @@
           <label>Market source</label>
           <div class="segmented">
             <button class="segment active" data-provider="crypto">Crypto</button>
-            <button class="segment" data-provider="yahoo">Stocks / FX / Futures</button>
+            <button class="segment" data-provider="twelve">Stocks / FX / Futures</button>
           </div>
         </div>
-        <div class="field" id="exchangeField">
-          <label for="exchange">Exchange</label>
-          <select id="exchange"></select>
-        </div>
+
         <div class="field grow">
           <label for="symbol">Symbol</label>
           <input id="symbol" value="BTC/USDT" autocomplete="off" placeholder="BTC/USDT" />
-          <small id="symbolHint">Examples: BTC/USDT, ETH/USDT</small>
+          <small id="symbolHint">Examples: BTC/USDT, ETH/USDT, SOL/USDT</small>
         </div>
+
+        <div class="field hidden" id="apiKeyField">
+          <label for="apiKey">Twelve Data API key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="Paste API key" />
+          <small>Saved only in this browser. Never committed to GitHub.</small>
+        </div>
+
         <button id="analyse" class="primary">Analyse market</button>
       </section>
 
@@ -51,9 +55,7 @@
 
       <section class="content-grid hidden" id="results">
         <article class="panel levels-panel">
-          <div class="panel-head">
-            <div><span class="kicker">CONFLUENCE</span><h2>Ranked key levels</h2></div>
-          </div>
+          <div class="panel-head"><div><span class="kicker">CONFLUENCE</span><h2>Ranked key levels</h2></div></div>
           <div class="nearest-grid">
             <div class="nearest"><span>Nearest resistance</span><strong id="nearestResistance">—</strong></div>
             <div class="nearest"><span>Nearest support</span><strong id="nearestSupport">—</strong></div>
@@ -81,7 +83,7 @@
       </section>
     </main>
 
-    <footer>Algorithmic estimates for research and education — not trading advice.</footer>
+    <footer>Algorithmic estimates for research and education — not trading advice. Analysis runs in your browser.</footer>
   </div>
   <script src="./app.js"></script>
 </body>

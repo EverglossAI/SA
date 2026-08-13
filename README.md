@@ -1,72 +1,45 @@
-# SA Key Levels
+# SA Key Levels — GitHub Pages only
 
-Static GitHub Pages frontend + FastAPI backend for automatic Daily / 4H / 1H key-level analysis.
+A browser-only multi-timeframe key-level analysis app. No Python backend and no separate server are required.
 
-## What changed in v3
+## Data sources
 
-- GitHub Pages-compatible frontend lives in `docs/`.
-- FastAPI backend lives in `backend/` and is deployable to Render via `render.yaml`.
-- CORS is configured for `https://everglossai.github.io` and local testing.
-- Level engine now scores fresh/untested zones and tags equal highs/lows, supply/demand departures, liquidity sweeps, and break-and-retests.
-- Crypto data uses CCXT. Stocks, indices, FX, and many futures symbols use yfinance. 4H Yahoo candles are derived from 1H candles.
+- Crypto: Binance public market-data API (1D, 4H, 1H)
+- Stocks / FX / futures: Twelve Data API using a user-supplied API key stored in browser localStorage
 
-## Local backend test
+The Twelve Data key is never committed to the repository. Because GitHub Pages is static hosting, there is no safe server-side secret store in this architecture.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-pytest -q
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-```
+## Deploy
 
-Check `http://127.0.0.1:8000/api/health`.
+1. Put `index.html`, `app.js`, `styles.css`, and `.nojekyll` in your repository root (or `docs/`).
+2. In GitHub: Settings → Pages.
+3. Choose `Deploy from a branch`.
+4. Select `main` and `/ (root)` if these files are in the repository root, or `/docs` if you place them in `docs/`.
+5. Save and wait for the Pages build to finish.
 
-## Local frontend test
+## Test
 
-In another terminal:
+### Crypto
 
-```bash
-python -m http.server 5500 --directory docs
-```
+Open the Pages site, leave `Crypto` selected, enter `BTC/USDT`, and click **Analyse market**. No API key is required.
 
-Open `http://127.0.0.1:5500`, enter `BTC/USDT`, and click **Analyse market**. On localhost the frontend automatically targets `http://127.0.0.1:8000`.
+### Stocks / FX / futures
 
-## Deploy backend to Render
+Select `Stocks / FX / Futures`, paste your Twelve Data API key, enter a symbol such as `SPY`, `AAPL`, or `EUR/USD`, and click **Analyse market**.
 
-1. Push this repository to GitHub.
-2. In Render choose **New > Blueprint** and select this repository.
-3. Render reads `render.yaml` and creates the `sa-key-levels-api` service.
-4. Wait for `/api/health` to return JSON with `"ok": true`.
-5. Copy the public Render URL, e.g. `https://sa-key-levels-api-xxxx.onrender.com`.
-6. Put that URL in `docs/config.js`:
+## What the detector scores
 
-```js
-window.KEY_LEVELS_API_BASE = "https://sa-key-levels-api-xxxx.onrender.com";
-```
+- Daily, 4H, and 1H pivots
+- ATR-based zones
+- repeated touches
+- fresh / tested / mature zones
+- equal highs / equal lows
+- supply / demand departures
+- liquidity sweeps
+- break & retest patterns
+- multi-timeframe confluence
+- higher-timeframe weighting
 
-Commit and push the change.
+## Security note
 
-## Deploy frontend to GitHub Pages
-
-Repository **Settings > Pages**:
-
-- Source: **Deploy from a branch**
-- Branch: **main**
-- Folder: **/docs**
-
-After GitHub publishes it, open `https://everglossai.github.io/SA/`.
-
-## Production smoke test
-
-1. Open the Render backend `/api/health` URL and confirm `ok: true`.
-2. Open the GitHub Pages site.
-3. Analyse `BTC/USDT` on Binance.
-4. Confirm Daily, 4H, and 1H tabs render candles.
-5. Confirm the result table shows `Freshness` and `Signals`.
-6. Try `SPY` in Stocks / FX / Futures mode.
-7. Open browser DevTools > Network. `/api/analyse` should be a 200 request to the Render domain, not GitHub Pages.
-
-## Notes
-
-This is a research tool, not trading advice. Public market-data providers can rate-limit or temporarily fail. Render free services may cold-start after inactivity.
+A GitHub Pages site cannot keep an API key secret because all HTML/JavaScript is delivered to the visitor. This app therefore stores the optional Twelve Data key only in the user's own browser. Do not hard-code a private API key into `app.js`.
