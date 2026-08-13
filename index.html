@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Key Levels</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="./styles.css" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="./config.js"></script>
 </head>
 <body>
   <div class="shell">
@@ -59,7 +60,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Type</th><th>Zone</th><th>TF</th><th>Touches</th><th>Score</th><th>Distance</th></tr></thead>
+              <thead><tr><th>Type</th><th>Zone</th><th>TF</th><th>Freshness</th><th>Signals</th><th>Score</th><th>Distance</th></tr></thead>
               <tbody id="levelsBody"></tbody>
             </table>
           </div>
@@ -82,6 +83,6 @@
 
     <footer>Algorithmic estimates for research and education — not trading advice.</footer>
   </div>
-  <script src="/static/app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

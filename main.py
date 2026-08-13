@@ -1,22 +1,37 @@
 from __future__ import annotations
 
-from pathlib import Path
+import os
 from typing import Literal
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from app.levels import detect_levels, merge_timeframes
-from webapp.services.data import CRYPTO_EXCHANGES, load_market_data
+from backend.data import CRYPTO_EXCHANGES, load_market_data
+from backend.levels import detect_levels, merge_timeframes
 
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="Key Levels", version="2.0.0")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+def _origins() -> list[str]:
+    defaults = [
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "https://everglossai.github.io",
+    ]
+    extra = [x.strip() for x in os.getenv("ALLOWED_ORIGINS", "").split(",") if x.strip()]
+    return sorted(set(defaults + extra))
+
+
+app = FastAPI(title="SA Key Levels API", version="3.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 
 class AnalyseRequest(BaseModel):
@@ -26,23 +41,29 @@ class AnalyseRequest(BaseModel):
 
 
 def frame_to_records(df: pd.DataFrame, max_rows: int = 260) -> list[dict]:
-    view = df.tail(max_rows).copy()
-    records = []
-    for row in view.itertuples(index=False):
-        records.append({
-            "time": pd.Timestamp(row.timestamp).isoformat(),
-            "open": float(row.open),
-            "high": float(row.high),
-            "low": float(row.low),
-            "close": float(row.close),
-            "volume": float(row.volume) if pd.notna(row.volume) else 0.0,
-        })
+    records: list[dict] = []
+    for row in df.tail(max_rows).itertuples(index=False):
+        records.append(
+            {
+                "time": pd.Timestamp(row.timestamp).isoformat(),
+                "open": float(row.open),
+                "high": float(row.high),
+                "low": float(row.low),
+                "close": float(row.close),
+                "volume": float(row.volume) if pd.notna(row.volume) else 0.0,
+            }
+        )
     return records
+
+
+@app.get("/")
+def root() -> dict:
+    return {"service": "sa-key-levels", "ok": True, "docs": "/docs"}
 
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "service": "key-levels"}
+    return {"ok": True, "service": "sa-key-levels", "version": "3.0.0"}
 
 
 @app.get("/api/config")
@@ -58,31 +79,33 @@ def analyse(req: AnalyseRequest) -> dict:
         levels_by_tf = {tf: detect_levels(df, tf) for tf, df in data.items()}
         current_price = float(data["1h"]["close"].iloc[-1])
         merged = merge_timeframes(levels_by_tf, current_price)
-        merged_records = []
+
+        levels: list[dict] = []
         for row in merged.to_dict(orient="records"):
-            merged_records.append({
-                "zone": row["zone"],
-                "low": float(row["low"]),
-                "high": float(row["high"]),
-                "mid": float(row["mid"]),
-                "type": row["type"],
-                "timeframes": row["timeframes"],
-                "touches": int(row["touches"]),
-                "score": float(row["score"]),
-                "distance_pct": float(row["distance_pct"]),
-            })
+            levels.append(
+                {
+                    "zone": row["zone"],
+                    "low": float(row["low"]),
+                    "high": float(row["high"]),
+                    "mid": float(row["mid"]),
+                    "type": row["type"],
+                    "timeframes": row["timeframes"],
+                    "touches": int(row["touches"]),
+                    "retests": int(row["retests"]),
+                    "freshness": row["freshness"],
+                    "signals": list(row["signals"]),
+                    "score": float(row["score"]),
+                    "distance_pct": float(row["distance_pct"]),
+                }
+            )
+
         return {
             "symbol": symbol,
             "provider": req.provider,
             "exchange": req.exchange if req.provider == "crypto" else None,
             "current_price": current_price,
-            "levels": merged_records,
+            "levels": levels,
             "charts": {tf: frame_to_records(df) for tf, df in data.items()},
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.get("/", include_in_schema=False)
-def home() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")

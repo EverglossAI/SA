@@ -1,27 +1,41 @@
 import numpy as np
 import pandas as pd
 
-from app.levels import detect_levels, merge_timeframes
+from backend.levels import Level, detect_levels, merge_timeframes
 
 
-def synthetic(n=520, seed=7):
+def sample_df(n=220, seed=7):
     rng = np.random.default_rng(seed)
-    t = pd.date_range("2025-01-01", periods=n, freq="h", tz="UTC")
-    base = 100 + np.sin(np.arange(n)/13)*5 + np.sin(np.arange(n)/43)*8
-    noise = rng.normal(0, .5, n)
-    close = base + noise
-    open_ = np.r_[close[0], close[:-1]]
-    high = np.maximum(open_, close) + rng.uniform(.2, 1.2, n)
-    low = np.minimum(open_, close) - rng.uniform(.2, 1.2, n)
-    return pd.DataFrame({"timestamp":t,"open":open_,"high":high,"low":low,"close":close,"volume":rng.integers(100,1000,n)})
+    x = np.arange(n)
+    base = 100 + 4*np.sin(x/11) + 0.012*x
+    close = base + rng.normal(0, 0.25, n)
+    open_ = close + rng.normal(0, 0.18, n)
+    high = np.maximum(open_, close) + rng.uniform(0.2, 0.65, n)
+    low = np.minimum(open_, close) - rng.uniform(0.2, 0.65, n)
+    return pd.DataFrame({
+        'timestamp': pd.date_range('2025-01-01', periods=n, freq='h', tz='UTC'),
+        'open': open_, 'high': high, 'low': low, 'close': close, 'volume': 1000.0,
+    })
 
 
-def test_multitimeframe_detector_returns_ranked_levels():
-    one_h = synthetic()
-    four_h = one_h.set_index("timestamp").resample("4h").agg({"open":"first","high":"max","low":"min","close":"last","volume":"sum"}).dropna().reset_index()
-    daily = one_h.set_index("timestamp").resample("1d").agg({"open":"first","high":"max","low":"min","close":"last","volume":"sum"}).dropna().reset_index()
-    by_tf = {"1d": detect_levels(daily,"1d"), "4h": detect_levels(four_h,"4h"), "1h": detect_levels(one_h,"1h")}
-    merged = merge_timeframes(by_tf, float(one_h.close.iloc[-1]))
-    assert not merged.empty
-    assert {"zone","score","timeframes","distance_pct"}.issubset(merged.columns)
-    assert len(merged) <= 10
+def test_detect_levels_returns_enriched_levels():
+    levels = detect_levels(sample_df(), '1h')
+    assert levels
+    assert all(l.freshness in {'fresh', 'tested', 'mature'} for l in levels)
+    assert all(isinstance(l.signals, list) for l in levels)
+    assert all(l.strength > 0 for l in levels)
+
+
+def test_merge_preserves_signals_and_timeframe_confluence():
+    levels = {
+        '1d': [Level(100, 99.8, 100.2, '1d', 'resistance', 2, 0, 3, 9.0, 'fresh', ['equal highs'])],
+        '4h': [Level(100.1, 99.9, 100.3, '4h', 'resistance', 1, 1, 2, 6.0, 'tested', ['liquidity sweep'])],
+        '1h': [],
+    }
+    merged = merge_timeframes(levels, 95.0)
+    assert len(merged) == 1
+    row = merged.iloc[0]
+    assert row['timeframes'] == '1D + 4H'
+    assert 'equal highs' in row['signals']
+    assert 'liquidity sweep' in row['signals']
+    assert row['score'] > 15
