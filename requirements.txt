@@ -1,0 +1,6 @@
+fastapi>=0.128,<1
+uvicorn[standard]>=0.48,<1
+pandas>=2.2,<3
+numpy>=2.3,<3
+ccxt>=4.5,<5
+yfinance>=0.2.65,<1
